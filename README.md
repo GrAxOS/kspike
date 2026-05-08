@@ -1,373 +1,83 @@
-# KSpike
+# kspike
 
-**Dual-mode kernel defense & active-response framework — Casper-governed.**
+> Dual-mode kernel defense and active-response framework — Casper-governed, judge-gated, forever auditable.
 
-> *"اعرف عدوك لتحميه من أن يؤذيك."*
-> Know your enemy — so you can shield yourself from the harm they intend.
+[![CI](https://github.com/Graxos/kspike/actions/workflows/ci.yml/badge.svg)](https://github.com/Graxos/kspike/actions)
+[![License](https://img.shields.io/badge/license-See%20LICENSE-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
 
-KSpike is the shield-arm of the Casper Engine stack. It is structured like
-Metasploit (modular, console-driven, exploit-library ergonomics) but inverted
-in purpose: every offensive capability is **sealed behind a judge** and can
-only fire when four conditions drawn from Islamic jurisprudence and modern
-active-defense law are satisfied. The default posture is defensive. Strikes
-are lawful, proportionate, and forever auditable.
-
-Built in Rust, zero hidden channels, no telemetry, no phone-home.
-Part of the [gratech.sa](https://gratech.sa) sovereign stack.
+**Status:** v0.7 — LSM paths + FFI integration working end-to-end. Public preview.
 
 ---
 
-## Design Principles
+## What it is
 
-| Principle | Translation in code |
-|---|---|
-| **الإنسان أولاً** — human first | Loyalty is to the operator, not to any vendor or state. |
-| **السيادة الرقمية** — digital sovereignty | No outbound channel the operator did not authorise. |
-| **الصدق بلا هلوسة** — truth without fabrication | Every module declares its limitations (`humility.rs`). |
-| **الكمال وهم** — perfection is a mirage | Confidence is always humbled by known limits before use. |
-| **عدل لا بطش** — justice, not brute force | Strikes pass the four-condition Judge + KHZ balance. |
-| **لا فعل سرّي** — no silent action | Every decision (allow / deny / fire / refuse) is sealed in a signed ledger. |
+`kspike` is a kernel-layer defense framework written in Rust. It combines:
 
----
+- **eBPF/LSM observation paths** — read-only telemetry from the Linux Security Module hooks.
+- **A Casper "judge" pipeline** — every active-response action passes through a deterministic policy gate before it executes, producing a tamper-evident audit log.
+- **Dual-mode operation** — Observation mode for monitoring; Response mode for in-kernel mitigation.
 
-## What's new in v0.7 → v1.0 — Niyah, Federation, Windows, HAVEN
+It is designed for environments that need EDR-grade kernel visibility but cannot ship closed-source vendor agents — regulated industries, sovereign deployments, air-gapped clusters.
 
-KSpike is now feature-complete through v1.0 — **17 crates**, all building.
+## Why "judge-gated"
 
-- **kspike-niyah** — Arabic-first explanations of every Judge ruling.
-  Every defense and strike is rendered into a Charter-anchored paragraph
-  in العربية النجدية الفصحى, English, or both.
-- **kspike-kforge production** — file-backed peer discovery, append-only
-  signed key log with attestation, and per-peer token-bucket back-pressure.
-- **kspike-windows** — WFP mirror types + ETW provider scaffold + WSL2
-  bridge ingester. Cross-compiles cleanly on any host.
-- **kspike-haven** — BootManifest schema, Phalanx Protocol bus contract,
-  service unit that boots BEFORE network-online.target so the engine is
-  alive before any external packet reaches userland.
-- **GitHub Actions CI** — minimal-permissions workflows that run on a fresh
-  fork without enabling extra permissions.
-
-Live smoke test of all eight v1.0 surfaces: `cargo run --release --example test_v1_full`.
-
-```
-╔═════════════════════════════════════╗
-  القرار: تنفيذ طلب ضربة «dnat_to_honeypot» تجاه 198.51.100.99
-  أصدر مهاجم «striker.net.meterpreter_sinkhole» قراراً...
-  المبادئ المُسْتنَدة: الإنسان أولاً، الصدق، العدل، الشجاعة، السرية
-╚═════════════════════════════════════╝
-```
-
----
-
-## What's new in v0.5+v0.6 — Live Kernel + Observability
-
-**Live kernel attach (v0.5)**
-- `kspike-xdp-burp --features aya_runtime` loads the compiled BPF object,
-  attaches to a real interface (skb/drv/offload), and feeds the engine over
-  RingBuf + PerfEventArray.
-- `SinkholeManager` orchestrates veth pairs + honeypot listener + SINKHOLE_MAP
-  entries when a striker is authorised. Works hand-in-hand with `kspike-honeypot`.
-
-**Three new taps (v0.6)**
-- `kspike-procfs`: TcpTap + ModulesTap (LISTEN/ESTABLISHED diff, hidden LKM,
-  refcnt anomalies). Tested live on this very host — 7 LISTEN sockets surfaced.
-- `kspike-auth-log`: streaming tail of /var/log/auth.log with sliding-window
-  burst aggregation. Tested with synthetic 12-line burst → emits
-  `ssh.auth.fail.burst` at the threshold.
-- `kspike-ebpf-lsm`: file_open / bprm_check_security / capable LSM hooks +
-  user-space tap (replay-tested with `/etc/shadow` open from `bash`).
-
-**Casper Engine wire-up**
-- Stable ABI v1.0 frozen as `include/casper_ffi.h` in BOTH repos
-  (KSpike + Casper_Engine).
-- Four-symbol contract: `casper_init`, `casper_judge_evaluate`,
-  `casper_shutdown`, `casper_version`.
-
-```bash
-# Build everything (14 crates):
-cargo build --release
-
-# Live attach (Linux + CAP_BPF):
-cargo build --release -p kspike-xdp-burp --features aya_runtime
-sudo setcap cap_bpf,cap_net_admin,cap_sys_admin+eip ./target/release/kspike-xdp-burp
-./target/release/kspike-xdp-burp --interface eth0
-```
-
----
-
-## What's new in v0.4 — Daemon + TUI + Casper + Honeypot + K-Forge
-
-- **kspike-daemon** (`kspiked`) — long-running engine over a UNIX socket;
-  shared `Arc<Engine>` so every tap (XDP, Casper, honey) ingests into the
-  same state. Ships with a full systemd hardening unit.
-- **kspike-tui** — interactive `kspike>` console, msfconsole-style.
-- **kspike-honeypot** — profile schema + built-ins (meterpreter_win10_x64,
-  ssh_ubuntu_2004, smb_win7). Charter-bound `forbidden_leaks` list.
-- **kspike-casper-ffi** — `CasperJudge` delegates final adjudication to the
-  Casper Engine (C11) over a minimal dlopen'd ABI. Composable: Casper can
-  only *tighten* the inner ROE, never loosen.
-- **kspike-kforge** — P2P gossip skeleton (Advert / FetchReq / Segment)
-  for community ledger replication under signed peers.
-- **docs/ops/BUILDING-BPF.md** — complete bpf-linker + CAP_BPF recipe.
-
-```bash
-# Daemon
-cargo run --release -p kspike-daemon -- --socket /tmp/kspike.sock --phi 0.35
-
-# In another terminal:
-cargo run --release -p kspike-tui -- --socket /tmp/kspike.sock
-kspike> status
-kspike> modules
-kspike> tail 10
-```
-
-See [ROADMAP.md](./ROADMAP.md) for the full plan through v1.0.
-
----
-
-## What's new in v0.3 — Kernel-Native MITM
-
-KSpike now ships a **transparent XDP + eBPF interceptor** (`kspike-xdp-burp`)
-that sits at the earliest point in the Linux receive path and feeds the
-Engine at wire speed. Think: **Burp Suite, but in the kernel, but defensive.**
-
-- 📡 XDP program (Rust + aya) parses L2→L4 for IPv4 and IPv6
-- 🧬 Three in-kernel detectors: Log4Shell JNDI, Meterpreter beacon, EternalBlue probe
-- 📦 RingBuf (threats → Engine) + PerfEventArray (flow telemetry → logs)
-- 🎯 XDP_REDIRECT pathway for `striker.net.meterpreter_sinkhole`
-- 🧪 Ships with a pcap-replay harness — works without CAP_BPF / kernel headers
-
-See [docs/design/XDP-BURP.md](./docs/design/XDP-BURP.md) for build recipe,
-Secure Boot notes, and the sinkhole wiring protocol.
-
-```bash
-# Exercise the full kernel→user pipeline in replay mode (any host):
-cargo build --release -p kspike-xdp-burp
-./target/release/kspike-xdp-burp
-
-# Real kernel attach (Linux + CAP_BPF + kernel headers):
-cd crates/kspike-xdp-burp/bpf && cargo +nightly build --release \
-    --target bpfel-unknown-none -Z build-std=core
-sudo ./target/release/kspike-xdp-burp --interface eth0
-```
-
----
-
-## Documentation
-
-- **[Judge Pipeline](./docs/architecture/judge_pipeline.md)** — canonical reference: how a kernel observation becomes a sealed action (Mermaid + ASCII + worked example).
-- [Architecture](./docs/design/ARCHITECTURE.md) — layered design.
-- [XDP-Burp](./docs/design/XDP-BURP.md) — kernel-native MITM internals.
-- [Building eBPF](./docs/ops/BUILDING-BPF.md) — bpf-linker recipe.
-- [ROE Charter](./docs/roe/ROE-CHARTER.md) — the four-condition charter.
-- [Roadmap](./ROADMAP.md) — v0.1 → v1.0 retro + v1.1+ plan.
-
----
+Most kernel-response tools execute mitigations as soon as a rule fires. `kspike` requires every mitigation to be approved by an offline-verifiable policy (the "judge") and emits a signed decision record. If you can't explain why a kernel killed a process six months later, you can't pass an audit. This pipeline exists so that you can.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  kspike-cli       console, signal ingest, status                │
-├─────────────────────────────────────────────────────────────────┤
-│  kspike-modules   engine · detectors · defenders · strikers     │
-├──────────────────────────┬──────────────────────────────────────┤
-│  kspike-judge            │  kspike-khz                          │
-│   ├ StaticJudge (ROE)    │   ├ Al-Jabr / Al-Muqabala operators  │
-│   ├ KhzJudge  (ROE+KHZ)  │   ├ Ten Khawarizmi rules             │
-│   └ ManualJudge          │   ├ Fitrah anchors (Quran, Luqman,   │
-│                          │   │   Khidr, Khawarizmi, Ibn Rushd,  │
-│                          │   │   Maqasid al-Shariah, …)         │
-│                          │   └ 115-version protocol archive     │
-├─────────────────────────────────────────────────────────────────┤
-│  kspike-core      Module trait · EventBus · EvidenceLedger      │
-│                   Signal · Humility · Typed errors              │
-└─────────────────────────────────────────────────────────────────┘
-                               ↓
-                   ┌──────────────────────┐
-                   │  evidence.jsonl      │
-                   │  Blake3 hash chain   │
-                   │  Ed25519 signatures  │
-                   └──────────────────────┘
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│  eBPF / LSM │ ──▶ │ Judge (Rust) │ ──▶ │ Action / FFI │
+│  observers  │     │  policy gate │     │   to Casper  │
+└─────────────┘     └──────────────┘     └──────────────┘
+                            │
+                            ▼
+                    ┌──────────────┐
+                    │ Audit ledger │
+                    │ (append-only)│
+                    └──────────────┘
 ```
 
----
+- `crates/observer` — eBPF/LSM event ingestion
+- `crates/judge` — policy evaluation, deterministic
+- `crates/casper-ffi` — bridge to the Casper inference engine for context-aware decisions
+- `crates/ledger` — append-only signed audit log
 
-## Rules of Engagement (ROE)
+See [`ROADMAP.md`](ROADMAP.md) for v1.0 plans.
 
-A Striker module may request offensive action only when **all four** conditions
-are met *and* a KHZ balance score (Φ) clears the configured floor:
+## Status & honest caveats
 
-1. **Certainty** (يقين) — attack is in progress, evidenced, not suspected.
-2. **Exhaustion** (استنفاد) — defenders tried, or attack is too fast to wait.
-3. **Legitimacy** (مشروعية الهدف) — target is the attacker, not bystanders.
-4. **Proportion** (تناسب) — force is commensurate with the threat
-   (the fiqh maxim *الضرورة تُقدَّر بقدرها*).
+This is a **public preview at v0.7**. End-to-end LSM + FFI works on Linux x86_64. The following are **not** production-ready yet:
 
-Hard-coded forbidden targets (never strike, even if provoked):
-- loopback / link-local / multicast
-- `*.gov`, `*.mil`, `*.edu`, `*.hospital`, `*.icrc.org`
-- any prefix the operator adds to `roe.toml`
+- ARM64 / NEON paths (planned)
+- Multi-node ledger replication
+- Formal verification of the judge pipeline (in design)
 
-Postures:
-- `passive_observer` — observe only.
-- `defensive_only` — defenders fire; strikers fully disabled.
-- `defensive_with_active_response` — default; full 4-condition gate.
-- `preemptive` — for high-velocity in-progress attacks; relaxes exhaustion.
+If you are evaluating `kspike` for production use, please open a discussion or reach out directly — see *Commercial use* below.
 
----
-
-## The KHZ_Q Balancer
-
-KSpike's ethical kernel is the **KHZ_Q balancer** — 115 protocol revisions
-(V2.1 → V41) distilled into a deterministic Rust core. For every decision:
-
-```
-Φ = [ Al-Muqabala( Σ Necessity )  −  Al-Muqabala( Σ Harm )  +  1 ] / 2
-```
-
-Al-Jabr restores missing terms from the Fitrah floor; Al-Muqabala balances
-opposing weights. Every ruling cites its Fitrah anchor (Quran / Sunnah /
-Luqman / Khidr / Khawarizmi / Ibn Rushd / Maqasid / scientific consensus /
-operator override). The full protocol archive lives at
-`docs/khz/khz_protocols.ndjson` for audit and community review.
-
----
-
-## Quick start
+## Build
 
 ```bash
-# Build
 cargo build --release
-
-# Run the demo pipeline (synthetic signals, ledger written to ./kspike-evidence.jsonl)
-./target/release/kspike demo
-
-# Ingest a single JSON signal from stdin
-echo '{"id":"...","ts":"2026-04-24T21:18:00Z","source":"AuthLog",
-       "kind":"ssh.auth.fail.burst","actor":"198.51.100.99","target":"sshd",
-       "threat":"Hostile","raw_confidence":0.95,"data":{"attempts":30}}' \
-  | ./target/release/kspike ingest
-
-# Dry-run (evaluate + judge + record, but don't apply)
-./target/release/kspike --dry-run demo
-
-# Manual judge (every striker needs out-of-band operator approval)
-./target/release/kspike --no-khz demo
 ```
 
----
+Requires: Linux 5.15+, Rust 1.75+, kernel headers, `clang` for eBPF compilation.
 
-## Module library
+## Why this exists
 
-### Core modules (v0.1)
+Built by [Sulaiman Alshammari](https://github.com/Grar00t) at [Graxos](https://github.com/Graxos) — sovereign AI infrastructure, built in Riyadh.
 
-| kind | name | risk | purpose |
-|---|---|---|---|
-| detector | `detector.ssh_bruteforce` | 0 | Reports high-velocity SSH auth failures. |
-| defender | `defender.ssh_quarantine` | 1 | Drops an actor into the nftables quarantine set (15-min TTL). |
-| defender | `defender.kernel_lockdown` | 3 | Raises kernel lockdown on rootkit suspicion. |
-| defender | `defender.fs_immunity` | 1 | Enables `fs.protect_*` sysctls to preserve evidence. |
-| striker | `striker.c2_burn` | 7 | Null-routes and DNS-sinks a confirmed C2. |
-| striker | `striker.traceback_beacon` | 8 | Plants a canary beacon to expose exfil path. |
+## Commercial use & advisory
 
-### MSF-Mirror modules (v0.2) — kernel-native, compiled-in
+`kspike` is open for inspection. For:
 
-Famous Metasploit offensive modules, inverted and wired directly into the
-engine via the `kspike-kernel` substrate.
+- Production hardening engagements
+- Custom LSM/eBPF integrations
+- Kernel-security architecture reviews
 
-| kind | name | MSF original | purpose |
-|---|---|---|---|
-| detector | `detector.smb.eternalblue_probe`  | `exploit/windows/smb/ms17_010_eternalblue` | NT_TRANS probe shape on the wire. |
-| defender | `defender.smb.v1_killswitch`      | — | Kills SMBv1 + blackholes 445 from the flagged actor. |
-| detector | `detector.smb.psexec_abuse`       | `exploit/windows/smb/psexec` | ADMIN$ mount + svcctl bind + CreateService correlation. |
-| detector | `detector.http.log4shell_jndi`    | `exploit/multi/http/log4shell_*` | JNDI strings (CVE-2021-44228) incl. obfuscated. |
-| defender | `defender.cred.dump_canary`       | `post/windows/gather/hashdump` | Plants fake credentials + flags anyone using them. |
-| detector | `detector.mem.shikata_polymorphic`| `x86/shikata_ga_nai` | Classic SGN decoder-stub prologue (two variants). |
-| detector | `detector.net.meterpreter_beacon` | `windows/meterpreter/reverse_*` | Stageless/staged Meterpreter C2 shape. |
-| striker  | `striker.net.meterpreter_sinkhole`| — | DNATs confirmed Meterpreter flows into a local honeypot. |
-| detector | `detector.ad.kerberoasting`       | `GetUserSPNs / Rubeus` | Multi-SPN TGS-REQ bursts with RC4 etype. |
-| deception| `deception.canary_token`          | — | DNS/URL/file tripwires; any touch implies recon. |
-
-**Kernel substrate** (`kspike-kernel`): packet view, byte/hex/utf16 inspection,
-canary registry, procfs/sysfs taps. No plugin boundary — these are part of the
-engine.
-
-Module authors implement a single trait (`kspike_core::Module`), declare their
-known limits (`KnownLimits`), and emit verdicts. Strikers `apply` MUST refuse
-to execute without a judge authorisation — a `RoeViolation` error is raised
-even if called directly.
-
----
-
-## Evidence ledger
-
-Every action — signals in, verdicts out, judge rulings, strikes, defenses,
-ROE breaches — is sealed as a hash-chained, Ed25519-signed JSON-Lines record:
-
-```json
-{
-  "seq": 17,
-  "ts": "2026-04-24T21:18:03Z",
-  "category": "strike",
-  "payload": { "module": "striker.c2_burn", "target": "198.51.100.99", ... },
-  "prev_hash": "c47c1ee4…",
-  "self_hash": "2ce67e75…",
-  "signature": "8669b42f…",
-  "signer_fpr": "17667b3d2e4d935e"
-}
-```
-
-Verify a ledger end-to-end with `EvidenceLedger::verify_file`.
-
----
-
-## Project layout
-
-```
-kspike/
-├── Cargo.toml                   # workspace
-├── crates/
-│   ├── kspike-core/             # Module trait, EventBus, Evidence, Humility
-│   ├── kspike-khz/              # KHZ_Q balancer + protocol archive loader
-│   ├── kspike-judge/            # ROE + StaticJudge / KhzJudge / ManualJudge
-│   ├── kspike-modules/          # engine, detectors, defenders, strikers
-│   └── kspike-cli/              # `kspike` binary
-├── docs/
-│   ├── design/                  # architecture docs (Arabic + English)
-│   ├── roe/                     # ROE charter (fiqh + law + tech)
-│   └── khz/khz_protocols.ndjson # 115-version KHZ_Q archive
-└── examples/                    # sample roe.toml, sample signals
-```
-
----
-
-## Sister projects
-
-- [Casper_Engine](https://github.com/Grar00t/Casper_Engine) — C11 hybrid
-  neuro-symbolic reasoning engine. KSpike can delegate final judgment to
-  Casper (`CasperJudge`, planned v0.2).
-- [haven-niyah-engine](https://github.com/Grar00t/haven-niyah-engine) —
-  Arabic-first three-lobe LLM. Will power contextual ROE explanations.
-- [k-forge](https://github.com/Grar00t/k-forge) — P2P, crypto-signed VCS.
-  KSpike evidence ledgers can be replicated over K-Forge for community IOC
-  sharing.
-- [khawrizm-os](https://github.com/Grar00t/khawrizm-os) — Sovereign ARM64
-  Linux. KSpike is a native citizen.
-
----
+Contact: **cartier403c@gmail.com** · DM on GitHub.
 
 ## License
 
-Casper-Sovereign-1.0 — see [LICENSE](./LICENSE). Permissive for defensive
-and research use; forbids any deployment that silences, surveils, or
-manipulates users against their own interest.
-
----
-
-## Author
-
-**Sulaiman Al-Shammari (DRAGON403)** — founder, GRA Tech Solutions
-Riyadh, KSA · admin@gratech.sa · `@Grar00t`
-
-*الخوارزمية دائماً تعود للوطن.*
+See [LICENSE](LICENSE).
