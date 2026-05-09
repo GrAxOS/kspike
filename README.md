@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-See%20LICENSE-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org)
 
-**Status:** v0.7 — LSM paths + FFI integration working end-to-end. Public preview.
+**Status:** v0.4 — Daemon + TUI + Casper governance + Honeypot + K-Forge shipped. 18-crate Rust workspace, public preview.
 
 ---
 
@@ -14,11 +14,20 @@
 
 `kspike` is a kernel-layer defense framework written in Rust. It combines:
 
-- **eBPF/LSM observation paths** — read-only telemetry from the Linux Security Module hooks.
-- **A Casper "judge" pipeline** — every active-response action passes through a deterministic policy gate before it executes, producing a tamper-evident audit log.
+- **eBPF/XDP and LSM observation paths** — kernel-fast-path packet inspection plus Linux Security Module telemetry.
+- **A Casper "judge" pipeline** — every active-response action passes through a deterministic policy gate before it executes, producing a tamper-evident, ed25519-signed audit log.
 - **Dual-mode operation** — Observation mode for monitoring; Response mode for in-kernel mitigation.
 
 It is designed for environments that need EDR-grade kernel visibility but cannot ship closed-source vendor agents — regulated industries, sovereign deployments, air-gapped clusters.
+
+## What's shipped (v0.1 → v0.4)
+
+- **v0.1 — Foundation:** core engine (Module trait, EventBus, Evidence), Khz balancer, judge framework (Static / Khz / Manual, 4-condition ROE), CLI.
+- **v0.2 — MSF-Mirror:** 9 defense modules mirroring real Metasploit techniques — EternalBlue, PSExec, Log4Shell, Shikata, Meterpreter ×2, Kerberoast, credential-dump canary, canary tokens.
+- **v0.3 — XDP-Burp:** user-space tokio loader + eBPF XDP program, RingBuf + PerfEventArray + sinkhole map, FNV-1a no-alloc hash, IPv4/IPv6 schema, MSF-mirror modules wired to the XDP fast-path.
+- **v0.4 — Daemon + TUI + Honeypot + K-Forge:** UNIX-socket daemon (kspiked) with hardened systemd unit, msfconsole-style interactive REPL (zero extra deps), honeypot profiles for Win10 / Ubuntu 20.04 / SMB Win7, Casper FFI integration.
+
+See [`ROADMAP.md`](ROADMAP.md) for the full version history and v1.0 plans.
 
 ## Why "judge-gated"
 
@@ -39,16 +48,13 @@ Most kernel-response tools execute mitigations as soon as a rule fires. `kspike`
                     └──────────────┘
 ```
 
-- `crates/observer` — eBPF/LSM event ingestion
-- `crates/judge` — policy evaluation, deterministic
-- `crates/casper-ffi` — bridge to the Casper inference engine for context-aware decisions
-- `crates/ledger` — append-only signed audit log
-
-See [`ROADMAP.md`](ROADMAP.md) for v1.0 plans.
+The 18-crate workspace splits responsibilities cleanly — `kspike-core`, `kspike-judge`, `kspike-ebpf-lsm`, `kspike-xdp-burp`, `kspike-honeypot`, `kspike-casper-ffi`, `kspike-daemon`, `kspike-tui`, `kspike-cli`, and others. The eBPF sub-crates build with the `bpfel-unknown-none` target and are excluded from the host workspace build.
 
 ## Status & honest caveats
 
-This is a **public preview at v0.7**. End-to-end LSM + FFI works on Linux x86_64. The following are **not** production-ready yet:
+This is a **public preview at v0.4**. The workspace builds and runs on Linux x86_64 with the components listed above.
+
+The following are **not** production-ready yet:
 
 - ARM64 / NEON paths (planned)
 - Multi-node ledger replication
@@ -80,4 +86,4 @@ Contact: **cartier403c@gmail.com** · DM on GitHub.
 
 ## License
 
-See [LICENSE](LICENSE).
+Casper-Sovereign License 1.0 — see [LICENSE](LICENSE).
