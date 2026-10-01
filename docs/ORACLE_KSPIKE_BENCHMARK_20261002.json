@@ -1,0 +1,134 @@
+{
+  "format": "ORACLE-KSPIKE-BENCHMARK-RECEIPT-V1",
+  "date": "2026-10-02",
+  "policy": "NO CLAIM BEYOND THE HASH",
+  "repository": {
+    "name": "GrAxOS/kspike",
+    "branch": "oracle/runtime-bridge-20261002",
+    "measured_head": "bd1de1ec1ddf8263a817c5dc9ba6e94183e343e9"
+  },
+  "host": {
+    "cpu": "Intel Core i5-10400F",
+    "logical_cpus": 10,
+    "rustc": "1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "1.99.0 (5f94df478 2026-08-27)"
+  },
+  "artifacts": {
+    "oracle_bench_rs": {
+      "bytes": 4502,
+      "sha256": "21ca5dfb7a378252dd42fca82554ec70b34b066aad997343a3b49411ded07005"
+    },
+    "casper_stub_so": {
+      "bytes": 15976,
+      "sha256": "7a4b98753281d8945c54cda2925d4343ab33eebacba049c1dffd62357ca3c05a"
+    },
+    "kspike_xdp_burp_release": {
+      "bytes": 2122592,
+      "sha256": "c2537dec42769dfc11b3a688cb386ee5ff9cb5832c53e16c495bebc097c05d6a"
+    },
+    "ebpf_object": {
+      "bytes": 26216,
+      "sha256": "e1077b889d973790069f18b5da65bd07032764af99edff5fc2e2ce451d54fe6c"
+    },
+    "qwen_v6_reaudit": {
+      "path": "D:/ALLAMDATA/benchmarks/QWEN3-V6-PAIRED-REAUDIT-20261002.json",
+      "bytes": 5764,
+      "sha256": "a13d54c0932c92c14b9b9932474daa1a35542dcd31f245c88baab8482939545b"
+    }
+  },
+  "oracle_control_path": {
+    "backend": "casper-stub-1.0",
+    "iterations_per_run": 50000,
+    "runs": 3,
+    "raw": [
+      {
+        "ffi_init_us": 50.600,
+        "ffi_eval_ns": 1960.94,
+        "cold_oracle_us": 151.300,
+        "baseline_ns_per_ingest": 82733.89,
+        "oracle_abstain_ns_per_ingest": 104931.27,
+        "oracle_veto_ns_per_ingest": 87196.75,
+        "abstain_overhead_ns": 22197.38
+      },
+      {
+        "ffi_init_us": 49.600,
+        "ffi_eval_ns": 1915.89,
+        "cold_oracle_us": 149.600,
+        "baseline_ns_per_ingest": 81065.93,
+        "oracle_abstain_ns_per_ingest": 104497.19,
+        "oracle_veto_ns_per_ingest": 85544.35,
+        "abstain_overhead_ns": 23431.26
+      },
+      {
+        "ffi_init_us": 55.300,
+        "ffi_eval_ns": 1905.62,
+        "cold_oracle_us": 209.100,
+        "baseline_ns_per_ingest": 80961.54,
+        "oracle_abstain_ns_per_ingest": 104238.32,
+        "oracle_veto_ns_per_ingest": 85361.99,
+        "abstain_overhead_ns": 23276.79
+      }
+    ],
+    "median": {
+      "ffi_init_us": 50.600,
+      "ffi_eval_us": 1.91589,
+      "cold_oracle_us": 151.300,
+      "baseline_us_per_ingest": 81.06593,
+      "oracle_abstain_us_per_ingest": 104.49719,
+      "abstain_overhead_us": 23.27679,
+      "abstain_overhead_percent": 28.75,
+      "baseline_ingests_per_sec": 12336,
+      "oracle_abstain_ingests_per_sec": 9570,
+      "oracle_veto_us_per_ingest": 85.54435,
+      "oracle_veto_ingests_per_sec": 11690
+    },
+    "veto_note": "Veto is not a like-for-like overhead comparison: it terminates before apply/defense ledger work."
+  },
+  "xdp_pass_through": {
+    "mode": "generic/SKB XDP on isolated veth+netns",
+    "packets": 500000,
+    "packet_loss_percent": 0,
+    "baseline_wall_seconds": 2.47,
+    "xdp_wall_seconds": 2.46,
+    "baseline_rtt_avg_ms": 0.002,
+    "xdp_rtt_avg_ms": 0.002,
+    "xdp_attached_verified": true,
+    "xdp_detach_verified": true,
+    "event_count": 0,
+    "interpretation": "No measurable pass-through degradation at this test resolution; this is not a payload-detection throughput benchmark."
+  },
+  "native_niyah_microbench": {
+    "simd": "AVX2+FMA",
+    "matvec_4096x4096_scalar_ms": 382.9,
+    "matvec_4096x4096_simd_ms": 109.8,
+    "matvec_speedup": 3.49,
+    "simd_bandwidth_gb_s": 24.5,
+    "forward_embed512_layers4_ms": 5.41,
+    "forward_embed512_layers4_tokens_per_sec": 185,
+    "forward_embed1024_layers6_ms": 34.27,
+    "forward_embed1024_layers6_tokens_per_sec": 29.2,
+    "train_step_embed256_layers2_ms": 10.20
+  },
+  "qwen_v6_quality": {
+    "kernel": "casper403/niyah-qwen3-v6-paired-v2",
+    "status": "COMPLETE",
+    "model": "Qwen/Qwen3-8B",
+    "dataset_rows": 600,
+    "dataset_sha256": "a2d27bc8a249c0d32fdd33c7abc89323d50b1000aba9a18b111bc9334d4c6a63",
+    "adapter_sha256": "b08931cdf2faf9252c51f7e32a7b2440b90852cae50879afe046ecac9c04f70f",
+    "base_correct": 432,
+    "base_accuracy": 0.72,
+    "adapter_correct": 600,
+    "adapter_accuracy": 1.0,
+    "wrong_to_right": 168,
+    "right_to_wrong": 0,
+    "mcnemar_exact_p": 5.345529420184391e-51,
+    "leakage_audit": "PASS_NO_DIRECT_EXACT_OR_WHITESPACE_NORMALIZED_PROMPT_PAIR_OR_ID_OVERLAP"
+  },
+  "claim_boundary": [
+    "K-Spike ORACLE latency uses the deterministic Casper stub, not Qwen inference.",
+    "Qwen result is frozen symbolic-logic accuracy on the V6 dataset, not a general capability score.",
+    "NIYAH microbench is a separate native-engine measurement, not end-to-end K-Spike latency.",
+    "XDP measurement covers ICMP pass-through only; event_count was zero."
+  ]
+}

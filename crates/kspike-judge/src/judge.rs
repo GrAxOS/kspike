@@ -45,6 +45,9 @@ pub struct RulingContext {
     pub target_legitimacy: f32,
     /// Attack certainty (0..1) — usually the humble-adjusted module confidence.
     pub attack_certainty: f32,
+    /// Optional non-authoritative cognitive constraint. There is intentionally
+    /// no positive cognitive ALLOW path; cognition may only abstain or veto.
+    pub cognitive: Option<CognitiveConstraint>,
 }
 
 /// Deterministic rules-engine judge. Always runs first; CasperJudge (if any)
@@ -72,6 +75,9 @@ impl Judge for StaticJudge {
                 conditions_met: [true; 4], required_dual_auth: false, ts: Utc::now(),
             },
             ModuleVerdict::Defend { .. } => {
+                if let Some(reason) = ctx.cognitive.as_ref().and_then(CognitiveConstraint::veto_reason) {
+                    return JudgeRuling::denied(format!("cognitive veto: {reason}"));
+                }
                 if matches!(self.cfg.posture, Posture::PassiveObserver) {
                     return JudgeRuling::denied("posture=passive_observer forbids defensive action");
                 }
@@ -84,6 +90,9 @@ impl Judge for StaticJudge {
                 };
             }
             ModuleVerdict::RequestStrike { target, proportionality, confidence, justification, .. } => {
+                if let Some(reason) = ctx.cognitive.as_ref().and_then(CognitiveConstraint::veto_reason) {
+                    return JudgeRuling::denied(format!("cognitive veto: {reason}"));
+                }
                 // Posture gate.
                 match self.cfg.posture {
                     Posture::PassiveObserver | Posture::DefensiveOnly => {
@@ -261,5 +270,95 @@ impl Judge for ManualJudge {
                 ts: Utc::now(),
             },
         }
+    }
+}
+
+
+#[cfg(test)]
+mod oracle_tests {
+    use super::*;
+    use kspike_core::{CognitiveConstraint, KnownLimits};
+
+    fn meta(kind: ModuleKind) -> ModuleMeta {
+        ModuleMeta {
+            name: "oracle.test".into(),
+            kind,
+            version: "0.1".into(),
+            description: "authority-boundary test".into(),
+            author: "test".into(),
+            risk_level: 1,
+            limits: KnownLimits::default(),
+            tags: vec![],
+        }
+    }
+
+    fn ctx(cognitive: Option<CognitiveConstraint>) -> RulingContext {
+        RulingContext {
+            defender_attempts_on_actor: 3,
+            external_corroboration: true,
+            target_legitimacy: 0.99,
+            attack_certainty: 0.99,
+            cognitive,
+        }
+    }
+
+    fn veto() -> CognitiveConstraint {
+        CognitiveConstraint::Veto {
+            rationale: "cognitive safety veto".into(),
+            provenance: Some("unit-test".into()),
+        }
+    }
+
+    #[test]
+    fn cognitive_veto_blocks_defense() {
+        let j = StaticJudge::new(Roe::default_roe());
+        let v = ModuleVerdict::Defend {
+            action: "quarantine".into(),
+            target: "self".into(),
+            confidence: 0.99,
+        };
+        let r = j.rule(&meta(ModuleKind::Defender), &v, &ctx(Some(veto())));
+        assert!(!r.allowed);
+        assert!(r.reason.contains("cognitive veto"));
+    }
+
+    #[test]
+    fn cognitive_veto_blocks_strike() {
+        let j = StaticJudge::new(Roe::default_roe());
+        let v = ModuleVerdict::RequestStrike {
+            action: "test".into(),
+            target: "198.51.100.10".into(),
+            justification: "synthetic".into(),
+            confidence: 0.99,
+            proportionality: 1,
+        };
+        let r = j.rule(&meta(ModuleKind::Striker), &v, &ctx(Some(veto())));
+        assert!(!r.allowed);
+        assert!(r.reason.contains("cognitive veto"));
+    }
+
+    #[test]
+    fn cognitive_veto_does_not_suppress_report_only() {
+        let j = StaticJudge::new(Roe::default_roe());
+        let v = ModuleVerdict::Report {
+            note: "observation only".into(),
+            confidence: 0.5,
+        };
+        let r = j.rule(&meta(ModuleKind::Detector), &v, &ctx(Some(veto())));
+        assert!(r.allowed);
+        assert_eq!(r.reason, "report-only");
+    }
+
+    #[test]
+    fn abstain_cannot_grant_authority_but_does_not_veto_defense() {
+        let j = StaticJudge::new(Roe::default_roe());
+        let v = ModuleVerdict::Defend {
+            action: "quarantine".into(),
+            target: "self".into(),
+            confidence: 0.99,
+        };
+        let c = CognitiveConstraint::Abstain { rationale: "no opinion".into() };
+        let r = j.rule(&meta(ModuleKind::Defender), &v, &ctx(Some(c)));
+        assert!(r.allowed);
     }
 }
