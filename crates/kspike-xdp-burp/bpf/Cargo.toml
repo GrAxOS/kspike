@@ -40,3 +40,9 @@ rpath      = false
 lto        = true
 panic      = "abort"
 codegen-units = 1
+
+[workspace]
+
+[features]
+default = []
+proof_marker = []

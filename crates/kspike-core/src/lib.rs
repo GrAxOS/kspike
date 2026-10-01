@@ -17,6 +17,7 @@ pub mod module;
 pub mod event;
 pub mod evidence;
 pub mod signal;
+pub mod cognitive;
 pub mod error;
 pub mod humility;
 pub mod prelude;
@@ -25,6 +26,7 @@ pub use module::{Module, ModuleKind, ModuleMeta, ModuleVerdict};
 pub use event::{Event, EventBus, EventKind, Severity};
 pub use evidence::{EvidenceLedger, EvidenceRecord, Signer};
 pub use signal::{Signal, SignalSource, ThreatLevel};
+pub use cognitive::{CognitiveConstraint, CognitiveLobe};
 pub use error::{KSpikeError, Result};
 pub use humility::{Limitation, KnownLimits};
 

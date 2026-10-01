@@ -18,7 +18,10 @@ use kspike_modules::detectors::SshBruteforceDetector;
 use kspike_modules::msf_mirror as msf;
 use kspike_kernel::canary::MemoryCanary;
 use kspike_kernel::KernelTap;
-use kspike_xdp_burp::{PcapReplay, XdpBurpConfig, XdpBurpTap};
+use kspike_xdp_burp::{XdpBurpConfig, XdpBurpTap};
+#[cfg(not(feature = "aya_runtime"))]
+use kspike_xdp_burp::PcapReplay;
+#[cfg(not(feature = "aya_runtime"))]
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -43,6 +46,14 @@ async fn main() -> Result<()> {
         judge,
     ));
 
+    #[cfg(feature = "oracle_cognitive")]
+    if let Ok(model_path) = std::env::var("ORACLE_COGNITIVE_MODEL") {
+        engine.set_cognitive_lobe(Arc::new(
+            kspike_casper_ffi::CasperCognitiveLobe::new(model_path),
+        ));
+        tracing::info!("ORACLE cognitive veto lobe configured");
+    }
+
     let canary = Arc::new(MemoryCanary::new());
     engine.register(Arc::new(SshBruteforceDetector::default()))?;
     engine.register(Arc::new(SshQuarantineDefender::default()))?;
@@ -59,15 +70,24 @@ async fn main() -> Result<()> {
     engine.register(Arc::new(msf::CanaryTokenDeception::new(canary.clone())))?;
 
     // ─── Tap ───────────────────────────────────────────────────────────────
-    let mut tap = XdpBurpTap::new(XdpBurpConfig::default());
+    let mut tap_cfg = XdpBurpConfig::default();
+    if let Ok(interface) = std::env::var("KSPIKE_IFACE") {
+        tap_cfg.interface = interface;
+    }
+    let mut tap = XdpBurpTap::new(tap_cfg);
 
     // Either attach the real XDP program (aya_runtime), or run the replay.
     #[cfg(feature = "aya_runtime")]
-    {
-        attach_xdp(&mut tap).await?;
-        tap.mark_active();
+    let _xdp_runtime = {
+        let bpf_path = std::env::var("KSPIKE_BPF")
+            .map_err(|_| anyhow::anyhow!("KSPIKE_BPF must point to the compiled eBPF object"))?;
+        let runtime = kspike_xdp_burp::runtime::attach(
+            &mut tap,
+            std::path::Path::new(&bpf_path),
+        ).await?;
         println!("▶ XDP program attached to {}", tap.config().interface);
-    }
+        runtime
+    };
 
     #[cfg(not(feature = "aya_runtime"))]
     {
@@ -93,7 +113,22 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Polling loop (cheap in this build — aya pushes into tap.sink()).
+    #[cfg(feature = "aya_runtime")]
+    loop {
+        let batch = tap.poll().unwrap_or_default();
+        if !batch.is_empty() {
+            let _ = tx.send(batch);
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("shutdown signal received");
+                break;
+            }
+        }
+    }
+
+    #[cfg(not(feature = "aya_runtime"))]
     for _ in 0..20 {
         let batch = tap.poll().unwrap_or_default();
         if !batch.is_empty() {
@@ -109,19 +144,4 @@ async fn main() -> Result<()> {
              s.signals, s.defenses, s.strikes, s.denials, s.reports);
     println!("▶ ledger: ./kspike-evidence.jsonl");
     Ok(())
-}
-
-#[cfg(feature = "aya_runtime")]
-async fn attach_xdp(_tap: &mut XdpBurpTap) -> Result<()> {
-    // This is where, on a real host, we would:
-    //   1. `Ebpf::load` the compiled BPF object (built under bpf/).
-    //   2. Look up `burp_kernel` XDP program, load, attach to cfg.interface.
-    //   3. Open the `EVENTS` RingBuf, spawn a task that `read`s records,
-    //      `decode_signal`s them, and pushes onto `tap.sink()`.
-    //   4. Open the `DEBUG` PerfEventArray, log records via tracing::debug.
-    //   5. On shutdown, detach the program cleanly.
-    //
-    // Code is kept separate to avoid pulling in `aya`, `libbpf-sys`, and
-    // kernel headers by default — see docs/design/XDP-BURP.md.
-    anyhow::bail!("aya_runtime attach scaffold: implement on host with CAP_BPF + kernel headers");
 }
