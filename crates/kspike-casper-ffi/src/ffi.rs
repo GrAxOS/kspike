@@ -3,7 +3,7 @@
 
 #![allow(non_snake_case, non_camel_case_types, dead_code)]
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::sync::{Mutex, OnceLock};
 
 use libc::{c_char, c_int, c_void};
@@ -13,6 +13,7 @@ pub struct CasperLib {
     init:     unsafe extern "C" fn(*const c_char) -> c_int,
     evaluate: unsafe extern "C" fn(*const c_char, *mut c_char, c_int) -> c_int,
     shutdown: unsafe extern "C" fn(),
+    version:  unsafe extern "C" fn() -> *const c_char,
     handle:   *mut c_void,
 }
 
@@ -30,7 +31,7 @@ mod imp {
         unsafe {
             let p = dlerror();
             if p.is_null() { return "<unknown>".into(); }
-            CStr::from_ptr(p).to_string_lossy().into_owned()
+            std::ffi::CStr::from_ptr(p).to_string_lossy().into_owned()
         }
     }
 
@@ -58,6 +59,7 @@ mod imp {
             init:     unsafe { sym(h, b"casper_init\0")? },
             evaluate: unsafe { sym(h, b"casper_judge_evaluate\0")? },
             shutdown: unsafe { sym(h, b"casper_shutdown\0")? },
+            version:  unsafe { sym(h, b"casper_version\0")? },
             handle: h,
         })
     }
@@ -110,6 +112,9 @@ pub fn available() -> bool { cfg!(feature = "link_casper") }
 pub fn version() -> String {
     if !available() { return "stub".into(); }
     let slot = match LIB.get() { Some(s) => s, None => return "uninitialised".into() };
-    let _guard = slot.lock().unwrap();
-    "linked".into()  // real impl would call casper_version() via dlsym
+    let guard = slot.lock().unwrap();
+    let Some(lib) = guard.as_ref() else { return "uninitialised".into(); };
+    let p = unsafe { (lib.version)() };
+    if p.is_null() { return "<null-version>".into(); }
+    unsafe { std::ffi::CStr::from_ptr(p) }.to_string_lossy().into_owned()
 }

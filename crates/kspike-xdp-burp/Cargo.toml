@@ -10,6 +10,11 @@ description = "Kernel-native transparent MITM for KSpike: XDP + eBPF Burp-style 
 name = "kspike-xdp-burp"
 path = "src/main.rs"
 
+[[bin]]
+name = "xdp_attach_probe"
+path = "src/bin/xdp_attach_probe.rs"
+required-features = ["aya_runtime"]
+
 [lib]
 path = "src/lib.rs"
 
@@ -19,6 +24,7 @@ kspike-kernel  = { path = "../kspike-kernel" }
 kspike-judge   = { path = "../kspike-judge" }
 kspike-modules = { path = "../kspike-modules", features = ["all"] }
 kspike-honeypot = { path = "../kspike-honeypot" }
+kspike-casper-ffi = { path = "../kspike-casper-ffi", optional = true }
 
 serde      = { workspace = true }
 serde_json = { workspace = true }
@@ -32,13 +38,17 @@ chrono     = { workspace = true }
 # harness so the whole pipeline is testable without CAP_BPF / kernel headers.
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
+aya = { version = "0.13.1", features = ["async_tokio"], optional = true }
+aya-log = { version = "0.2.1", optional = true }
+bytes = { version = "1", optional = true }
 
 [dependencies.tokio]
 version  = "1"
-features = ["rt-multi-thread", "macros", "signal", "sync", "time"]
+features = ["rt-multi-thread", "macros", "signal", "sync", "time", "net"]
 
 [features]
 default = []
 # `aya` pulls in kernel headers + BTF; only turn on when building for a real
 # host with CAP_BPF. Off by default so `cargo build` works in any sandbox.
-aya_runtime = []
+aya_runtime = ["dep:aya", "dep:aya-log", "dep:bytes"]
+oracle_cognitive = ["dep:kspike-casper-ffi", "kspike-casper-ffi/link_casper"]

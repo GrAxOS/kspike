@@ -27,6 +27,7 @@ pub struct Engine {
     bus: EventBus,
     attempt_counter: RwLock<HashMap<String, u8>>, // actor → defender-attempt-count
     stats: RwLock<EngineStats>,
+    cognitive: RwLock<Option<Arc<dyn CognitiveLobe>>>,
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
@@ -50,6 +51,7 @@ impl Engine {
             bus: EventBus::new(),
             attempt_counter: RwLock::new(HashMap::new()),
             stats: RwLock::new(EngineStats::default()),
+            cognitive: RwLock::new(None),
         }
     }
 
@@ -63,6 +65,14 @@ impl Engine {
 
     pub fn bus(&self) -> &EventBus { &self.bus }
     pub fn stats(&self) -> EngineStats { self.stats.read().unwrap().clone() }
+
+    pub fn set_cognitive_lobe(&self, lobe: Arc<dyn CognitiveLobe>) {
+        *self.cognitive.write().unwrap() = Some(lobe);
+    }
+
+    pub fn clear_cognitive_lobe(&self) {
+        *self.cognitive.write().unwrap() = None;
+    }
 
     pub fn ingest(&self, signal: Signal) -> Result<Vec<serde_json::Value>> {
         {
@@ -92,6 +102,31 @@ impl Engine {
                 "module": &meta.name, "verdict": &verdict,
             }))?;
 
+            // Cognition is non-authoritative and is consulted only for
+            // proposed side effects. It can abstain or veto, never allow.
+            let cognitive = if matches!(
+                verdict,
+                ModuleVerdict::Defend { .. } | ModuleVerdict::RequestStrike { .. }
+            ) {
+                self.cognitive.read().unwrap().clone().map(|lobe| {
+                    match lobe.constrain(&signal, &meta, &verdict) {
+                        Ok(c) => c,
+                        Err(e) => CognitiveConstraint::Veto {
+                            rationale: format!("{} unavailable: {e}", lobe.name()),
+                            provenance: Some("fail-closed".into()),
+                        },
+                    }
+                })
+            } else {
+                None
+            };
+            if let Some(ref c) = cognitive {
+                let _ = self.ledger.seal("cognitive", serde_json::json!({
+                    "module": &meta.name,
+                    "constraint": c,
+                }))?;
+            }
+
             // Build context for the judge.
             let ctx = RulingContext {
                 defender_attempts_on_actor: signal.actor.as_ref()
@@ -100,6 +135,7 @@ impl Engine {
                 external_corroboration: matches!(signal.source, SignalSource::Peer),
                 target_legitimacy: signal.raw_confidence,
                 attack_certainty: meta.limits.humble(signal.raw_confidence),
+                cognitive: cognitive.clone(),
             };
 
             let ruling = self.judge.rule(&meta, &verdict, &ctx);

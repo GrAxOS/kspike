@@ -25,3 +25,11 @@ default = []
 link_casper = []
 
 [build-dependencies]
+
+[dev-dependencies]
+kspike-modules = { path = "../kspike-modules" }
+
+[[example]]
+name = "oracle_bench"
+path = "examples/oracle_bench.rs"
+required-features = ["link_casper"]

@@ -36,6 +36,7 @@ fn ctx(certainty: f32, legitimacy: f32, attempts: u8, corro: bool) -> RulingCont
         target_legitimacy: legitimacy,
         defender_attempts_on_actor: attempts,
         external_corroboration: corro,
+        cognitive: None,
     }
 }
 
