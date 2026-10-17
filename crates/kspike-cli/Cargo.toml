@@ -11,14 +11,16 @@ name = "kspike"
 path = "src/main.rs"
 
 [features]
-default  = ["strikers"]
-strikers = []
+default  = []
+# Active-response modules are an explicit opt-in. Enabling this feature also
+# enables the implementation in kspike-modules.
+strikers = ["kspike-modules/strikers"]
 
 [dependencies]
 kspike-core    = { path = "../kspike-core" }
 kspike-kernel  = { path = "../kspike-kernel" }
 kspike-judge   = { path = "../kspike-judge" }
-kspike-modules = { path = "../kspike-modules", features = ["all"] }
+kspike-modules = { path = "../kspike-modules", default-features = false, features = ["defenders", "detectors", "msf_mirror"] }
 clap               = { workspace = true }
 anyhow             = { workspace = true }
 tracing            = { workspace = true }
