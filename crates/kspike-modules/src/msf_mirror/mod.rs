@@ -2,7 +2,7 @@
 //! Metasploit's most famous offensive modules, inverted for defense.
 //!
 //! Every module here is:
-//!   • compiled into the engine (no plugin boundary)
+//!   • compiled into the engine when its Cargo feature is enabled
 //!   • driven by kspike-kernel taps (packet/memory/procfs)
 //!   • judge-gated for any offensive effect
 
@@ -20,6 +20,8 @@ pub use psexec::PsExecAbuseDetector;
 pub use log4shell::Log4ShellJndiDetector;
 pub use cred_canary::CredDumpCanaryDefender;
 pub use shikata::ShikataPolymorphicDetector;
-pub use meterpreter::{MeterpreterBeaconDetector, MeterpreterSinkholeStriker};
+pub use meterpreter::MeterpreterBeaconDetector;
+#[cfg(feature = "strikers")]
+pub use meterpreter::MeterpreterSinkholeStriker;
 pub use kerberoast::KerberoastDetector;
 pub use canary_token::CanaryTokenDeception;
