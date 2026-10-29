@@ -42,6 +42,10 @@ jobs:
         run: cargo test --release --workspace --locked
         continue-on-error: false
 
+      - name: cargo test (explicit striker opt-in)
+        run: cargo test --release -p kspike --features strikers --locked
+        continue-on-error: false
+
   fmt:
     name: rustfmt
     runs-on: ubuntu-latest

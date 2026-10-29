@@ -76,8 +76,10 @@ impl Module for MeterpreterBeaconDetector {
     }
 }
 
+#[cfg(feature = "strikers")]
 pub struct MeterpreterSinkholeStriker { meta: ModuleMeta }
 
+#[cfg(feature = "strikers")]
 impl Default for MeterpreterSinkholeStriker {
     fn default() -> Self {
         Self {
@@ -107,6 +109,7 @@ impl Default for MeterpreterSinkholeStriker {
     }
 }
 
+#[cfg(feature = "strikers")]
 impl Module for MeterpreterSinkholeStriker {
     fn meta(&self) -> &ModuleMeta { &self.meta }
     fn evaluate(&self, s: &Signal) -> Result<ModuleVerdict> {

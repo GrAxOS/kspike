@@ -68,6 +68,17 @@ If you are evaluating `kspike` for production use, please open a discussion or r
 cargo build --release
 ```
 
+The default CLI build excludes active-response striker modules. To compile and
+register them explicitly:
+
+```bash
+cargo build --release -p kspike --features strikers
+```
+
+This feature only makes striker modules available; every strike remains
+judge-gated. Use `--dry-run` when you want the CLI to report proposed actions
+without applying side effects.
+
 Requires: Linux 5.15+, Rust 1.75+, kernel headers, `clang` for eBPF compilation.
 
 ## Why this exists
